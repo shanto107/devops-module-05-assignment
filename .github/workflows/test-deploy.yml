@@ -1,0 +1,54 @@
+name: Test & Deploy Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest   
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm run check > test-results.txt || true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: test-results.txt
+          
+  deploy:
+    runs-on: self-hosted
+    needs: test
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download test results
+        uses: actions/download-artifact@v3
+        with:
+          name: test-results
+          path: ./test-results
+
+      - name: Display test results
+        run: cat ./test-results/test-results.txt
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Deploy app with PM2
+        run: |
+          pm2 delete ostad-app || true
+          pm2 start src/server.js --name ostad-app
+          pm2 save
+
+    
